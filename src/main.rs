@@ -25,6 +25,7 @@ use iroh::{
     discovery::{dns::DnsDiscovery, pkarr::PkarrPublisher},
     Endpoint, NodeAddr, RelayMode, RelayUrl, SecretKey, Watcher,
 };
+use iroh::discovery::mdns::MdnsDiscovery;
 use iroh_blobs::{
     api::{
         blobs::{
@@ -636,6 +637,7 @@ async fn send(args: SendArgs) -> anyhow::Result<()> {
         .alpns(vec![iroh_blobs::protocol::ALPN.to_vec()])
         .secret_key(secret_key)
         .relay_mode(args.common.relay.into());
+    builder = builder.add_discovery(MdnsDiscovery::builder());
     if args.ticket_type == AddrInfoOptions::Id {
         builder = builder.add_discovery(PkarrPublisher::n0_dns());
     }
@@ -973,6 +975,7 @@ async fn receive(args: ReceiveArgs) -> anyhow::Result<()> {
         .alpns(vec![])
         .secret_key(secret_key)
         .relay_mode(args.common.relay.into());
+    builder = builder.add_discovery(MdnsDiscovery::builder());
 
     if ticket.node_addr().relay_url.is_none() && ticket.node_addr().direct_addresses.is_empty() {
         builder = builder.add_discovery(DnsDiscovery::n0_dns());
