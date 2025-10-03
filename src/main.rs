@@ -1,5 +1,6 @@
 //! Command line arguments.
 
+use iroh::endpoint::{TransportConfig, VarInt};
 use std::{
     collections::BTreeMap,
     fmt::{Display, Formatter},
@@ -25,8 +26,6 @@ use iroh::{
     discovery::{dns::DnsDiscovery, pkarr::PkarrPublisher},
     Endpoint, NodeAddr, RelayMode, RelayUrl, SecretKey, Watcher,
 };
-use iroh::discovery::mdns::MdnsDiscovery;
-use iroh::discovery::pkarr::dht::DhtDiscovery;
 use iroh_blobs::{
     api::{
         blobs::{
@@ -634,12 +633,15 @@ async fn send(args: SendArgs) -> anyhow::Result<()> {
         eprintln!("using secret key {secret_key}");
     }
     // create a magicsocket endpoint
+    let mut transport_config = TransportConfig::default();
+    transport_config.send_window(10 * 1024 * 1024);
+    transport_config.receive_window(VarInt::from_u32(10 * 1024 * 1024));
+    transport_config.stream_receive_window(VarInt::from_u32(5 * 1024 * 1024));
     let mut builder = Endpoint::builder()
+        .transport_config(transport_config)
         .alpns(vec![iroh_blobs::protocol::ALPN.to_vec()])
         .secret_key(secret_key)
         .relay_mode(args.common.relay.into());
-    builder = builder.add_discovery(MdnsDiscovery::builder());
-    builder = builder.add_discovery(DhtDiscovery::builder());
     if args.ticket_type == AddrInfoOptions::Id {
         builder = builder.add_discovery(PkarrPublisher::n0_dns());
     }
@@ -973,12 +975,15 @@ async fn receive(args: ReceiveArgs) -> anyhow::Result<()> {
     let ticket = args.ticket;
     let addr = ticket.node_addr().clone();
     let secret_key = get_or_create_secret(args.common.verbose > 0)?;
+    let mut transport_config = TransportConfig::default();
+    transport_config.send_window(10 * 1024 * 1024);
+    transport_config.receive_window(VarInt::from_u32(10 * 1024 * 1024));
+    transport_config.stream_receive_window(VarInt::from_u32(5 * 1024 * 1024));
     let mut builder = Endpoint::builder()
+        .transport_config(transport_config)
         .alpns(vec![])
         .secret_key(secret_key)
         .relay_mode(args.common.relay.into());
-    builder = builder.add_discovery(MdnsDiscovery::builder());
-    builder = builder.add_discovery(DhtDiscovery::builder());
 
     if ticket.node_addr().relay_url.is_none() && ticket.node_addr().direct_addresses.is_empty() {
         builder = builder.add_discovery(DnsDiscovery::n0_dns());
